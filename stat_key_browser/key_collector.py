@@ -2,23 +2,18 @@
 Query the PowerScale cluster for statistics keys.
 
 Uses PAPI to download all keys, converts them into a dict,
-squashes indexed keys (like a.b.c.1 -> a.b.c.N), and de-abbreviates values.
+squashes indexed keys (like a.b.c.1 → a.b.c.N), and de-abbreviates values.
 """
 
 import logging
 import re
 from typing import Dict, List, Any
 
-try:
-    import isi_sdk_7_2 as isi_sdk
-except ImportError:
-    try:
-        import isi_sdk
-    except ImportError as e:
-        logging.critical("Unable to import isi_sdk_7_2 or isi_sdk. Isilon SDK must be installed.")
-        raise ImportError(
-            "Missing Isilon SDK. Install from: https://github.com/isilon"
-        ) from e
+from stat_key_browser.cluster_config import (
+    get_base_release,
+    load_versioned_sdk_module,
+    ApiException
+)
 
 
 class KeyCollector:
@@ -26,6 +21,20 @@ class KeyCollector:
         self.cluster_ip = cluster_ip
         self.username = username
         self.password = password
+
+        version_str, version_module = get_base_release(cluster_ip, username, password)
+        self.sdk = load_versioned_sdk_module(version_module)
+
+        self.config = self.sdk.Configuration()
+        self.config.host = f"https://{cluster_ip}:8080"
+        self.config.username = username
+        self.config.password = password
+        self.config.verify_ssl = False
+
+        self.api_client = self.sdk.ApiClient(self.config)
+        self.statistics_api = self.sdk.StatisticsApi(self.api_client)
+
+        logging.info(f"Using SDK version {version_module} for OneFS {version_str}")
 
     def get_tagged_squashed_dict(self) -> Dict[str, Any]:
         """Return fully prepared stat key dictionary."""
@@ -39,16 +48,8 @@ class KeyCollector:
         return {entry["key"]: entry for entry in key_list}
 
     def _get_key_list(self) -> List[Dict[str, Any]]:
-        isi_sdk.configuration.username = self.username
-        isi_sdk.configuration.password = self.password
-        isi_sdk.configuration.verify_ssl = False  # This is insecure in prod
-
-        host = f"https://{self.cluster_ip}:8080"
-        papi = isi_sdk.ApiClient(host)
-        statistics = isi_sdk.StatisticsApi(papi)
-
         logging.debug(f"Querying {self.cluster_ip} for statistics keys")
-        return statistics.get_statistics_keys().to_dict()["keys"]
+        return self.statistics_api.get_statistics_keys().to_dict()["keys"]
 
     def _squash_keys(self, key_dict: Dict[str, Any]) -> Dict[str, Any]:
         """Squash indexed keys like a.b.1 → a.b.N."""
