@@ -1,40 +1,55 @@
-import sys
-try:
-    import isi_sdk_7_2 as isi_sdk
-except ImportError as err:
-    try:
-        # Try the original SDK library name
-        import isi_sdk
-    except ImportError as err:
-        print('Unable to import isi_sdk_7_2. Please install the Isilon SDK.')
-        print('See https://github.com/isilon')
-        print(err)
-        sys.exit(1)
+"""
+Connects to a PowerScale cluster and dynamically loads the correct OneFS API bindings
+based on the OneFS version. Uses isilon_sdk (modern SDK as of OneFS 9.4+).
+"""
 
+import logging
+import importlib
+from typing import Any, Tuple
+
+import isilon_sdk
+from isilon_sdk.rest import ApiException as RawApiException
 
 class ApiException(Exception):
-    def __init__(self, msg):
-        self.msg = msg
-
-    def __str__(self):
-        return repr(self.msg)
+    """Raised when API call or SDK import fails."""
+    pass
 
 
-def _get_cluster_version(cluster_ip, username, password):
-    isi_sdk.configuration.username = username
-    isi_sdk.configuration.password = password
-    isi_sdk.configuration.verify_ssl = False
-    host = 'https://' + cluster_ip + ':8080'
-    papi = isi_sdk.ApiClient(host)
-    cluster_api = isi_sdk.ClusterApi(papi)
-    response = cluster_api.get_cluster_config().to_dict()
-    if 'onefs_version' not in response:
-        raise ApiException('Could not find onefs_version in API response: {0}'
-                           .format(response))
-    release = response['onefs_version']['release']
-    return release
+def get_base_release(cluster_ip: str, username: str, password: str) -> Tuple[str, str]:
+    """
+    Use isilon_sdk base client to retrieve the OneFS version.
+    Returns:
+      - release: '9.9.0.0'
+      - module name: 'v9_9_0'
+    """
+    config = isilon_sdk.Configuration()
+    config.host = f"https://{cluster_ip}:8080"
+    config.username = username
+    config.password = password
+    config.verify_ssl = False
+
+    client = isilon_sdk.ApiClient(config)
+    cluster_api = isilon_sdk.ClusterApi(client)
+
+    try:
+        info = cluster_api.get_cluster_config().to_dict()
+        version_str = info["onefs_version"]["release"]
+        version_mod = "v" + "_".join(version_str.split(".")[:3])
+        return version_str, version_mod
+    except RawApiException as e:
+        raise ApiException(f"Failed to get cluster version: {e}")
+    except KeyError:
+        raise ApiException("Expected key 'onefs_version.release' not found in API response.")
 
 
-def get_release(cluster_ip, username, password):
-    version = _get_cluster_version(cluster_ip, username, password)
-    return version
+def load_versioned_sdk_module(version_module: str):
+    """
+    Dynamically import the isilon_sdk.<version_module>.
+    Example: 'v9_9_0' → isilon_sdk.v9_9_0
+    """
+    try:
+        return importlib.import_module(f"isilon_sdk.{version_module}")
+    except ImportError as e:
+        raise ApiException(
+            f"Could not import isilon_sdk.{version_module}. Is the SDK installed?"
+        ) from e
