@@ -58,13 +58,12 @@ The script will prompt you for a username and password, and will create the brow
 
 ## Install SDK Python language bindings
 
-You can use the SDK Python language bindings to automate the configuration, maintenance, and monitoring of your Isilon cluster. For information on how to install the Python language bindings and write Python scripts to access the OneFS API, refer to the following Github sites:
+You can use the SDK Python language bindings to automate the configuration, maintenance, and monitoring of your Isilon cluster. For information on how to install the Python language bindings and write Python scripts to access the OneFS API, refer to the following Github site:
 
-[`https://github.com/Isilon/isilon_sdk_7_2_python`](https://github.com/Isilon/isilon_sdk_7_2_python)
-[`https://github.com/Isilon/isilon_sdk_8_0_python`](https://github.com/Isilon/isilon_sdk_8_0_python)
+[`https://github.com/Isilon/isilon_sdk_python`](https://github.com/Isilon/isilon_sdk_python)
 
 
-Copyright (c) 2016 EMC Corporation
+Copyright (c) 2025 EMC Corporation
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
