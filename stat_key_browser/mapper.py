@@ -1,44 +1,48 @@
-"""Generate key/category to id mappings."""
+"""
+Generate key and category name mappings to HTML-safe IDs.
+"""
 
 import hashlib
+from typing import Dict, Optional
 
 
-def _convert_to_id(name):
-    """Convert a string to a suitable form for html attributes and ids."""
-    hasher = hashlib.md5()
-    hasher.update(name.encode('utf-8'))
-    return hasher.hexdigest()
+def _convert_to_id(name: str) -> str:
+    """Convert a name to an MD5-based HTML-safe ID."""
+    return hashlib.md5(name.encode("utf-8")).hexdigest()
 
 
-def cat_join(*args):
-    """Join super, sub, subsub cats into consolidated category name."""
-    return '-'.join(args)
+def cat_join(*args: Optional[str]) -> str:
+    """Join category components into a unified string."""
+    return "-".join(str(a) for a in args if a is not None)
 
 
-def cat_id(category):
-    """Return a category ID for a category name."""
-    return 'cat_' + _convert_to_id(category)
+def cat_id(category: str) -> str:
+    """Prefix the MD5 of the category string for DOM use."""
+    return f"cat_{_convert_to_id(category)}"
 
 
-def key_ids(key_dict, prefix='key_'):
-    """Iterate through key_dict and map key names to key IDs."""
-    mapping = {}
-    for key_name in key_dict:
-        mapping[key_name] = prefix + _convert_to_id(key_name)
-    return mapping
+def key_ids(key_dict: Dict[str, dict], prefix: str = "key_") -> Dict[str, str]:
+    """Map each key name to a unique HTML ID."""
+    return {key_name: f"{prefix}{_convert_to_id(key_name)}" for key_name in key_dict}
 
 
-def category_ids(key_dict):
-    """Iterate through key_dict and map category names to category IDs."""
-    mapping = {}
-    for (key, value) in key_dict.items():
-        if 'super' in value and value['super'] is not None:
-            supercat = cat_join(value['super'])
-            mapping.setdefault(supercat, cat_id(supercat))
-            if 'sub' in value and value['sub'] is not None:
-                subcat = cat_join(value['super'], value['sub'])
-                mapping.setdefault(subcat, cat_id(subcat))
-                if 'subsub' in value and value['subsub'] is not None:
-                    subsubcat = cat_join(value['super'], value['sub'], value['subsub'])
-                    mapping.setdefault(subsubcat, cat_id(subsubcat))
+def category_ids(key_dict: Dict[str, dict]) -> Dict[str, str]:
+    """
+    Generate HTML-safe IDs for each unique category path (super, sub, subsub).
+    """
+    mapping: Dict[str, str] = {}
+    for value in key_dict.values():
+        supercat = value.get("super")
+        subcat = value.get("sub")
+        subsubcat = value.get("subsub")
+
+        if supercat:
+            path = cat_join(supercat)
+            mapping.setdefault(path, cat_id(path))
+        if supercat and subcat:
+            path = cat_join(supercat, subcat)
+            mapping.setdefault(path, cat_id(path))
+        if supercat and subcat and subsubcat:
+            path = cat_join(supercat, subcat, subsubcat)
+            mapping.setdefault(path, cat_id(path))
     return mapping
