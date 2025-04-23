@@ -76,7 +76,8 @@ class BrowserBuilder:
     def _write_key_data_json(self, output_path: Path) -> dict:
         """Write keys to a JS file used by the browser."""
         logging.info("Collecting statistics keys from the cluster...")
-        key_dict = key_collector.get_tagged_squashed_dict(self.cluster_ip, self.username, self.password)
+        collector = key_collector.KeyCollector(self.cluster_ip, self.username, self.password)
+        key_dict = collector.get_tagged_squashed_dict()
         key_dict = self._transform_key_dict(key_dict)
         data = self._build_dataset(key_dict)
 
