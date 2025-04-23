@@ -1,100 +1,88 @@
 """
-Provide access to the tag definitions and utilities.
+Provide access to the tag definitions and tagging utilities.
 
-Reads and parses into a dict the json tag def file. Provides access to this dict.
-Takes a key_dict and applies tags per the tag definations.
+Reads and parses a JSON tag definition file.
+Tags keys in a dictionary based on the definitions.
 """
-import logging
+
 import json
-import os
+import logging
 import re
-import sys
+from pathlib import Path
+from typing import Any, Dict, List
+
 import stat_key_browser
 
-KEY_TAG_DEFS_FILENAME = 'key_tags.json'
-EXTRA_ATTRS = 'xtra_attrs'
-
-def dedupe_list(l):
-    s = set(l)
-    deduped_l = [x for x in s]
-    return deduped_l
+KEY_TAG_DEFS_FILENAME = "key_tags.json"
+EXTRA_ATTRS = "xtra_attrs"
 
 
-class Tagger(object):
-    def __init__(self, defs=None):
+class TagDefinitionError(Exception):
+    """Custom exception for tag definition loading errors."""
+    pass
+
+
+class Tagger:
+    def __init__(self, defs: List[Dict[str, Any]] = None):
         if defs is None:
             def_path = self.get_defs_path()
             try:
-                with open(def_path, 'r') as def_file:
+                with def_path.open("r", encoding="utf-8") as def_file:
                     defs = json.load(def_file)
-            except IOError as err:
-                logging.error('Unable to open {0}: {1}'.format(def_path, err))
+            except OSError as err:
+                logging.error(f"Unable to open tag definitions at {def_path}: {err}")
                 logging.error("Try running 'make tags' to create the tag file")
-                sys.exit(1)
+                raise TagDefinitionError(f"Could not load tag definitions from {def_path}") from err
         self.tag_defs = defs
 
-    def _add_tags(self, key, tags):
-        key.setdefault('tags', [])
-        key['tags'] += tags
-
-    def _dedupe_tag_lists(self, key_dict):
-        for data in key_dict.values():
-            if 'tags' in data:
-                data['tags'] = dedupe_list(data['tags'])
-        return key_dict
-
-    def _pop_keys(self, dictionary, *args):
-        di = dictionary.copy()
-        for key in args:
-            try:
-                di.pop(key)
-            except KeyError:
-                pass
-        return di
-
-    def _get_extra_attrs(self, defin):
-        arb_attrs = self._pop_keys(defin.copy(), 'keys', 're-keys', 'tags')
-        for (extra_attr, val) in arb_attrs.items():
-            if len(val) != 1:
-                msg = 'Extra attibute must have a single value. {0} has value {1}'
-                raise ValueError(msg.format(extra_attr, val))
-        return arb_attrs
-
-    def _add_extra_attrs(self, key, extra_attrs):
-        """Add extra attrs to a key."""
-        for (attr_name, val) in extra_attrs.items():
-            key.setdefault(EXTRA_ATTRS, {})
-            key[EXTRA_ATTRS][attr_name] = '\n'.join(val)
-
-    def get_defs_path(self):
+    def get_defs_path(self) -> Path:
         """Return path to tag definitions file."""
-        basedir = stat_key_browser.__path__[0]
-        defs_path = os.path.join(basedir, 'data', KEY_TAG_DEFS_FILENAME)
-        logging.debug('Expect key tag definitions at ', path=defs_path)
+        basedir = Path(stat_key_browser.__path__[0])
+        defs_path = basedir / "data" / KEY_TAG_DEFS_FILENAME
+        logging.debug(f"Expecting key tag definitions at {defs_path}")
         return defs_path
 
-    def tag_list(self):
-        """Return a list of all the tags that appear in the definations."""
-        tags = []
-        for defin in self.tag_defs:
-            tags += defin['tags']
-        tags = dedupe_list(tags)
-        tags.sort()
-        return tags
+    def tag_list(self) -> List[str]:
+        """Return a sorted list of all tags from all definitions."""
+        tags = {tag for defin in self.tag_defs for tag in defin.get("tags", [])}
+        return sorted(tags)
 
-    def tag_keys(self, key_dict):
-        """Apply tags to keys in key_dict."""
+    def tag_keys(self, key_dict: Dict[str, Any]) -> Dict[str, Any]:
+        """Apply tag definitions to keys in the dictionary."""
         for defin in self.tag_defs:
             extra_attrs = self._get_extra_attrs(defin)
-            for key in defin.get('keys', []):
-                self._add_tags(key_dict[key], defin['tags'])
-                self._add_extra_attrs(key_dict[key], extra_attrs)
-            if 're-keys' in defin:
-                for (key, data) in key_dict.items():
-                    for re_key in defin['re-keys']:
-                        if re.search(re_key, key):
-                            self._add_tags(data, defin['tags'])
-                            self._add_extra_attrs(key_dict[key], extra_attrs)
-        # Fix multiply matching keys that have duplicated tags.
-        key_dict = self._dedupe_tag_lists(key_dict)
+            for key in defin.get("keys", []):
+                if key in key_dict:
+                    self._add_tags(key_dict[key], defin["tags"])
+                    self._add_extra_attrs(key_dict[key], extra_attrs)
+
+            for re_key in defin.get("re-keys", []):
+                pattern = re.compile(re_key)
+                for key, data in key_dict.items():
+                    if pattern.search(key):
+                        self._add_tags(data, defin["tags"])
+                        self._add_extra_attrs(data, extra_attrs)
+
+        return self._dedupe_tag_lists(key_dict)
+
+    def _get_extra_attrs(self, defin: Dict[str, Any]) -> Dict[str, List[str]]:
+        """Extract arbitrary key/value attributes outside of known fields."""
+        extra = {k: v for k, v in defin.items() if k not in {"keys", "re-keys", "tags"}}
+        for attr, val in extra.items():
+            if len(val) != 1:
+                raise ValueError(f"Extra attribute '{attr}' must have a single value, got: {val}")
+        return extra
+
+    def _add_tags(self, key: Dict[str, Any], tags: List[str]) -> None:
+        key.setdefault("tags", []).extend(tags)
+
+    def _add_extra_attrs(self, key: Dict[str, Any], extra_attrs: Dict[str, List[str]]) -> None:
+        key.setdefault(EXTRA_ATTRS, {})
+        for attr_name, val in extra_attrs.items():
+            key[EXTRA_ATTRS][attr_name] = "\n".join(val)
+
+    def _dedupe_tag_lists(self, key_dict: Dict[str, Any]) -> Dict[str, Any]:
+        for data in key_dict.values():
+            if "tags" in data:
+                data["tags"] = sorted(set(data["tags"]))
         return key_dict
