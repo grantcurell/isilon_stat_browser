@@ -1,4 +1,5 @@
-#! /usr/bin/env python
+#!/usr/bin/env python3
+
 """
 Parse a hexa key/lists-of-values doc into a list of dicts.
 
@@ -23,10 +24,21 @@ valuesA
 
 """
 
+# !/usr/bin/env python
+"""
+Parse a hexa key/lists-of-values doc into a list of dicts.
+...
+"""
+
 import fileinput
 import json
 import re
 import logging
+import sys
+import pytest
+
+# Force stdout to UTF-8 for clean output redirection
+sys.stdout.reconfigure(encoding='utf-8')
 
 
 def is_new_block(line):
@@ -103,7 +115,8 @@ def hexaparse(hexainput=None):
         else:
             if line != '':
                 if not key:
-                    raise ValueError('Key (:::key) must be set before adding value "{0}" on line {1}.'.format(line, line_num))
+                    raise ValueError(
+                        'Key (:::key) must be set before adding value "{0}" on line {1}.'.format(line, line_num))
                 values.append(line)
         line_num += 1
     # Save the final keys, values
@@ -177,8 +190,8 @@ def test_parse_04():
                  '::::::', ]
     expected = [{'key1': ['value1', 'value2'], 'key2': ['valueA', 'valueB']}]
     result = hexaparse(hexainput)
-    print ('expected: {0}'.format(expected))
-    print ('actual:   {0}'.format(result))
+    print('expected: {0}'.format(expected))
+    print('actual:   {0}'.format(result))
     assert result == expected
 
 
@@ -189,8 +202,8 @@ def test_parse_05():
     expected = [{'key1': ['value1', 'value2'], 'key2': ['valueA', 'valueB']},
                 {'keyA': ['valueZ', 'valueX']}]
     result = hexaparse(hexainput)
-    print ('expected: {0}'.format(expected))
-    print ('actual:   {0}'.format(result))
+    print('expected: {0}'.format(expected))
+    print('actual:   {0}'.format(result))
     assert result == expected
 
 
@@ -225,9 +238,11 @@ def test_parse_09():
     result = hexaparse(hexainput)
     assert result == expected
 
+
 def test_parse_10():
     """Parse with commas in keys and values."""
-    hexainput = ['::::::', '# a comment', ':::key:1', 'value:1', '#another comment', 'value:2', '::::::', ':::key::2', 'value::2']
+    hexainput = ['::::::', '# a comment', ':::key:1', 'value:1', '#another comment', 'value:2', '::::::', ':::key::2',
+                 'value::2']
     expected = [{'key:1': ['value:1', 'value:2'], 'key::2': ['value::2']}]
     result = hexaparse(hexainput)
     assert result == expected
@@ -284,13 +299,16 @@ def test_hexakey_comment_0():
     """Test comment."""
     assert is_comment('# a comment')
 
+
 def test_hexakey_comment_1():
     """Test comment."""
     assert is_comment('#a comment')
 
+
 def test_hexakey_comment_3():
     """Test comment."""
     assert is_comment('#')
+
 
 def test_hexakey_comment_4():
     """Test non-comment."""
