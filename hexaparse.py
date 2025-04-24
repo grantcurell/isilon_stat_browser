@@ -27,7 +27,6 @@ import fileinput
 import json
 import re
 import logging
-import pytest
 
 
 def is_new_block(line):

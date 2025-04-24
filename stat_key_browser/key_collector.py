@@ -9,11 +9,7 @@ import logging
 import re
 from typing import Dict, List, Any
 
-from stat_key_browser.cluster_config import (
-    get_base_release,
-    load_versioned_sdk_module,
-    ApiException
-)
+from isilon_sdk.v9_10_0 import Configuration, ApiClient, StatisticsApi
 
 
 class KeyCollector:
@@ -22,19 +18,16 @@ class KeyCollector:
         self.username = username
         self.password = password
 
-        version_str, version_module = get_base_release(cluster_ip, username, password)
-        self.sdk = load_versioned_sdk_module(version_module)
+        config = Configuration()
+        config.host = f"https://{cluster_ip}:8080"
+        config.username = username
+        config.password = password
+        config.verify_ssl = False
 
-        self.config = self.sdk.Configuration()
-        self.config.host = f"https://{cluster_ip}:8080"
-        self.config.username = username
-        self.config.password = password
-        self.config.verify_ssl = False
+        self.api_client = ApiClient(config)
+        self.statistics_api = StatisticsApi(self.api_client)
 
-        self.api_client = self.sdk.ApiClient(self.config)
-        self.statistics_api = self.sdk.StatisticsApi(self.api_client)
-
-        logging.info(f"Using SDK version {version_module} for OneFS {version_str}")
+        logging.info(f"Using static SDK version v9_10_0")
 
     def get_tagged_squashed_dict(self) -> Dict[str, Any]:
         """Return fully prepared stat key dictionary."""
