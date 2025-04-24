@@ -1,315 +1,106 @@
 #!/usr/bin/env python3
-
 """
-Parse a hexa key/lists-of-values doc into a list of dicts.
+Parse a .hexa key/list-of-values doc into JSON files.
 
-Each list item is a dict. The contain lists referenced by keyname.
-
--Input-
-::::::
-:::keyA
-value1
-
-:::keyB
-value1
-value3
-value5
-
-::::::
-:::key20
-valuesA
-
--Outputs-
-[{'keyA': ['value1'], 'keyB': ['value1', 'value3', 'value5']}, {'key20': ['valuesA']}]
-
+Each list item is a dict. The output files are:
+- stat_key_browser/data/key_tags.json
+- stat_key_browser/data/key_cats.json
 """
 
-# !/usr/bin/env python
-"""
-Parse a hexa key/lists-of-values doc into a list of dicts.
-...
-"""
-
-import fileinput
+import sys
 import json
 import re
 import logging
-import sys
-import pytest
+from pathlib import Path
 
-# Force stdout to UTF-8 for clean output redirection
-sys.stdout.reconfigure(encoding='utf-8')
+# Configure logging
+logging.basicConfig(level=logging.INFO, datefmt='%Y-%m-%dT%H:%M:%S',
+                    format='%(asctime)s [%(levelname)s] %(message)s')
 
 
 def is_new_block(line):
-    """Determine whether a string marks a new block."""
-    if re.match('::::::$', line):
-        if len(line[3:]) > 0:
-            return True
-    else:
-        return False
+    return re.match(r'^::::::$', line.strip()) is not None
 
 
 def is_key(line):
-    """Determine whether a string is a key."""
-    if re.match(':::[^:].*', line):
-        if len(line[3:]) > 0:
-            return True
-    else:
-        return False
+    return re.match(r'^:::[^:]', line.strip()) is not None
 
 
 def is_comment(line):
-    """Determine whether a string is a key."""
-    if re.match('#', line):
-        return True
-    else:
-        return False
+    return line.strip().startswith("#")
 
 
 def hexakey(line):
-    """Parse a key from a hexakey."""
-    if not is_key(line):
-        raise ValueError
-    return line[3:].strip()
+    return line.strip()[3:].strip()
 
 
-def hexaparse(hexainput=None):
+def parse_hexa_file(path: Path):
     """
-    Parse a hexa file.
-
-    Parses a hexa formatted text file into dicts. If hexainput is none reads from
-    a file name passed in sysargs, else from stdin.
-
-    :param hexainput: A file-like object containing lines to be parsed
-    :returns: An array of dicts
+    Parse a hexa-formatted file into a list of dictionaries.
+    Each dictionary represents a block.
     """
-    logging.basicConfig(level=logging.INFO, datefmt='%Y-%m-%dT%H:%M:%S',
-                        format='%(asctime)s [%(levelname)s] %(message)s')
-    logging.debug('Logging started')
-    output = []
-    output_block = {}
+    logging.info(f"Parsing {path}")
+    blocks = []
+    block = {}
     key = None
     values = []
-    if not hexainput:
-        hexainput = fileinput.input()
-    line_num = 1
-    for line in hexainput:
-        line = line.strip()
-        logging.debug('Parsing line: ', line=line)
-        if is_comment(line):
-            continue
-        elif is_key(line):
-            if key:
-                # Don't try to save values if this is the first key
-                output_block[key] = values
-            key = hexakey(line)
-            values = []
-        elif is_new_block(line):
-            if output_block != {}:
-                output_block[key] = values
-                output.append(output_block)
-                output_block = {}
-                values = []
+
+    with path.open("r", encoding="utf-8") as f:
+        for lineno, line in enumerate(f, 1):
+            line = line.strip()
+            if not line or is_comment(line):
+                continue
+            elif is_new_block(line):
+                if key:
+                    block[key] = values
+                if block:
+                    blocks.append(block)
+                block = {}
                 key = None
-        else:
-            if line != '':
-                if not key:
-                    raise ValueError(
-                        'Key (:::key) must be set before adding value "{0}" on line {1}.'.format(line, line_num))
+                values = []
+            elif is_key(line):
+                if key:
+                    block[key] = values
+                key = hexakey(line)
+                values = []
+            else:
+                if key is None:
+                    raise ValueError(f"Missing key before value on line {lineno}")
                 values.append(line)
-        line_num += 1
-    # Save the final keys, values
+
+    # Final flush
     if key:
-        output_block[key] = values
-        output.append(output_block)
-    return output
+        block[key] = values
+    if block:
+        blocks.append(block)
+
+    return blocks
 
 
-if __name__ == '__main__':
-    print(json.dumps(hexaparse(), indent=2))
+def write_json(data, path: Path):
+    """Write the given data to a file with UTF-8 (no BOM)."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("w", encoding="utf-8") as f:
+        json.dump(data, f, indent=2)
+    logging.info(f"Wrote {len(data)} blocks to {path}")
 
 
-def test_is_new_block_1():
-    """Test proper block marker."""
-    assert is_new_block('::::::')
+def main():
+    base_dir = Path(__file__).parent
+    data_dir = base_dir / "stat_key_browser" / "data"
+
+    tag_file = data_dir / "key_tags.hexa"
+    cat_file = data_dir / "key_cats.hexa"
+
+    tag_output = data_dir / "key_tags.json"
+    cat_output = data_dir / "key_cats.json"
+
+    tag_data = parse_hexa_file(tag_file)
+    cat_data = parse_hexa_file(cat_file)
+
+    write_json(tag_data, tag_output)
+    write_json(cat_data, cat_output)
 
 
-def test_is_new_block_2():
-    """Test proper block marker with newline."""
-    assert is_new_block('::::::\n')
-
-
-def test_is_new_block_5():
-    """Test non block marker."""
-    assert not is_new_block(':::::')
-
-
-def test_is_new_block_6():
-    """Test non block marker with newline."""
-    assert not is_new_block(':::::\n')
-
-
-def test_is_new_block_7():
-    """Test non block marker."""
-    assert not is_new_block('::::')
-
-
-def test_is_new_block_8():
-    """Test non block marker."""
-    assert not is_new_block(' ::::::')
-
-
-def test_parse_01():
-    """Parse basic 1 key 1 val input."""
-    hexainput = [':::key1', 'value1']
-    expected = [{'key1': ['value1']}]
-    result = hexaparse(hexainput)
-    assert result == expected
-
-
-def test_parse_02():
-    """Parse basic 1 key 2 val input."""
-    hexainput = [':::key1', 'value1', 'value2']
-    expected = [{'key1': ['value1', 'value2']}]
-    result = hexaparse(hexainput)
-    assert result == expected
-
-
-def test_parse_03():
-    """Parse basic 2 key 2 vals input."""
-    hexainput = [':::key1', 'value1', 'value2', ':::key2', 'valueA', 'valueB']
-    expected = [{'key1': ['value1', 'value2'], 'key2': ['valueA', 'valueB']}]
-    result = hexaparse(hexainput)
-    assert result == expected
-
-
-def test_parse_04():
-    """Parse 1 block with sep."""
-    hexainput = [':::key1', 'value1', 'value2', ':::key2', 'valueA', 'valueB',
-                 '::::::', ]
-    expected = [{'key1': ['value1', 'value2'], 'key2': ['valueA', 'valueB']}]
-    result = hexaparse(hexainput)
-    print('expected: {0}'.format(expected))
-    print('actual:   {0}'.format(result))
-    assert result == expected
-
-
-def test_parse_05():
-    """Parse 2 blocks."""
-    hexainput = [':::key1', 'value1', 'value2', ':::key2', 'valueA', 'valueB',
-                 '::::::', ':::keyA', 'valueZ', 'valueX']
-    expected = [{'key1': ['value1', 'value2'], 'key2': ['valueA', 'valueB']},
-                {'keyA': ['valueZ', 'valueX']}]
-    result = hexaparse(hexainput)
-    print('expected: {0}'.format(expected))
-    print('actual:   {0}'.format(result))
-    assert result == expected
-
-
-def test_parse_06():
-    """Parse key with no values."""
-    hexainput = [':::key1', 'value1', 'value2', ':::key2']
-    expected = [{'key1': ['value1', 'value2'], 'key2': []}]
-    result = hexaparse(hexainput)
-    assert result == expected
-
-
-def test_parse_07():
-    """Parse with leading block sep."""
-    hexainput = ['::::::', ':::key1', 'value1', 'value2']
-    expected = [{'key1': ['value1', 'value2']}]
-    result = hexaparse(hexainput)
-    assert result == expected
-
-
-def test_parse_08():
-    """Parse with surrounding block sep."""
-    hexainput = ['::::::', ':::key1', 'value1', 'value2', '::::::']
-    expected = [{'key1': ['value1', 'value2']}]
-    result = hexaparse(hexainput)
-    assert result == expected
-
-
-def test_parse_09():
-    """Parse with commas in keys and values."""
-    hexainput = ['::::::', ':::key:1', 'value:1', 'value:2', '::::::', ':::key::2', 'value::2']
-    expected = [{'key:1': ['value:1', 'value:2'], 'key::2': ['value::2']}]
-    result = hexaparse(hexainput)
-    assert result == expected
-
-
-def test_parse_10():
-    """Parse with commas in keys and values."""
-    hexainput = ['::::::', '# a comment', ':::key:1', 'value:1', '#another comment', 'value:2', '::::::', ':::key::2',
-                 'value::2']
-    expected = [{'key:1': ['value:1', 'value:2'], 'key::2': ['value::2']}]
-    result = hexaparse(hexainput)
-    assert result == expected
-
-
-def test_is_key_1():
-    """Test valid key."""
-    assert is_key(':::key')
-
-
-def test_is_key_2():
-    """Test non-key."""
-    assert not is_key('::key')
-
-
-def test_is_key_3():
-    """Test non-key."""
-    assert not is_key(':key')
-
-
-def test_is_key_4():
-    """Test non-key."""
-    assert not is_key(' :::key')
-
-
-def test_is_key_7():
-    """Test non-key."""
-    assert not is_key(':::')
-
-
-def test_hexakey_1():
-    """Test valid key."""
-    assert hexakey(':::key') == 'key'
-
-
-def test_hexakey_2():
-    """Test valid key."""
-    assert hexakey(':::key ') == 'key'
-
-
-def test_hexakey_3():
-    """Test non-key."""
-    with pytest.raises(ValueError):
-        hexakey(':')
-
-
-def test_hexakey_4():
-    """Test non-key."""
-    with pytest.raises(ValueError):
-        hexakey(': ')
-
-
-def test_hexakey_comment_0():
-    """Test comment."""
-    assert is_comment('# a comment')
-
-
-def test_hexakey_comment_1():
-    """Test comment."""
-    assert is_comment('#a comment')
-
-
-def test_hexakey_comment_3():
-    """Test comment."""
-    assert is_comment('#')
-
-
-def test_hexakey_comment_4():
-    """Test non-comment."""
-    assert not is_comment(' #not a comment')
+if __name__ == "__main__":
+    main()

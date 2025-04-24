@@ -3,7 +3,7 @@
 PYTHON ?= python3
 PIP ?= pip3
 PYLINT ?= pylint
-HEXAPARSE = ./hexaparse.py
+HEXAPARSE = $(PYTHON) hexparse.py
 
 DIST_DIR = dist
 VERSION := $(shell git describe --tags --exact-match --abbrev=0 2>/dev/null || git rev-parse --short HEAD)
@@ -21,8 +21,7 @@ clean:
 
 ## Generate .json files from .hexa
 tags:
-	$(HEXAPARSE) stat_key_browser/data/key_tags.hexa > stat_key_browser/data/key_tags.json
-	$(HEXAPARSE) stat_key_browser/data/key_cats.hexa > stat_key_browser/data/key_cats.json
+	$(HEXAPARSE)
 
 ## Run pylint
 lint:

@@ -52,7 +52,7 @@ class BrowserBuilder:
         Falls back to 'unknown' if connection or version detection fails.
         """
         try:
-            release = cluster_config.get_release(self.cluster_ip, self.username, self.password)
+            release, _ = cluster_config.get_base_release(self.cluster_ip, self.username, self.password)
         except ApiException:
             logging.warning("Unable to determine OneFS version via SDK")
             release = UNKNOWN_RELEASE
