@@ -1,0 +1,5 @@
+flask
+jinja2
+urllib3
+isilon-sdk
+requests

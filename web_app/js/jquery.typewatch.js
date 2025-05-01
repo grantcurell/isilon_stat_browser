@@ -14,9 +14,9 @@
 
 !function(root, factory) {
     if (typeof define === 'function' && define.amd) {
-        define(['jquery'], factory);
+        define(['web_app/js/jquery'], factory);
     } else if (typeof exports === 'object') {
-        factory(require('jquery'));
+        factory(require('web_app/js/jquery'));
     } else {
         factory(root.jQuery);
     }

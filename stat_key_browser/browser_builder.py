@@ -137,7 +137,7 @@ class BrowserBuilder:
         logging.info(f"Rendering HTML to {output_path}")
 
         # Load the Jinja2 template
-        loader = PackageLoader("stat_key_browser", "templates")
+        loader = PackageLoader("stat_key_browser", "../templates")
         env = Environment(loader=loader)
         template = env.get_template("app_template.html")
 
@@ -179,3 +179,28 @@ class BrowserBuilder:
         except Exception as e:
             logging.error(f"Failed to build browser: {e}")
             raise
+
+
+def build(cluster_ip: str, username: str, password: str, store_ip: bool = True) -> dict:
+    """
+    External entry point for Flask apps or other tools that want structured
+    stat key metadata without writing to disk.
+    Returns a dictionary suitable for passing to Jinja2 templates.
+    """
+    builder = BrowserBuilder(cluster_ip, username, password, store_ip)
+    logging.info("Building stats dataset for rendering (in-memory only)")
+
+    # Collect keys from cluster
+    collector = key_collector.KeyCollector(cluster_ip, username, password)
+    key_dict = collector.get_tagged_squashed_dict()
+    key_dict = builder._transform_key_dict(key_dict)
+    dataset = builder._build_dataset(key_dict)
+
+    return {
+        "categories": dataset["categories"],
+        "keys": dataset["keys"],
+        "cat_mappings": dataset["mappings"]["categories"],
+        "key_mappings": dataset["mappings"]["keys"],
+        "tags": dataset["tags"],
+        "cluster": dataset["cluster"],
+    }

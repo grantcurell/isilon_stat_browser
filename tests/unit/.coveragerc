@@ -1,3 +1,0 @@
-[run]
-omit = tests/*
-       stat_key_browser/swagger_client/*

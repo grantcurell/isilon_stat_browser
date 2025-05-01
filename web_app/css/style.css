@@ -23,7 +23,6 @@
   src: url(../fonts/MtNoLFRo.ttf);
 }
 
-
 .material-icons {
   font-family: 'Material Icons';
   font-weight: normal;
@@ -63,7 +62,6 @@
 .material-icons.md-light { color: rgba(255, 255, 255, 1); }
 .material-icons.md-light.md-inactive { color: rgba(255, 255, 255, 0.3); }
 
-
 .no-transition {
   -webkit-transition: height 0.01s;
   -moz-transition: height 0.01s;
@@ -75,7 +73,6 @@
 html {
   background-color: #BABCBE;
 }
-
 
 h1 {
   font-family: 'Meta-NormalLF';
@@ -138,8 +135,7 @@ input {
   padding: 0px;
 }
 
-.filter-control{
-
+.filter-control {
 }
 
 .btn-tag {

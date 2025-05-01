@@ -59,9 +59,9 @@ function antisquash_key(key) {
 
 function papi_stat_link(key, endpoint, papi_vers) {
   key = antisquash_key(key)
-  server = 'https://' + cluster_ip + ':8080'
-  uri = '/platform/' + papi_vers + '/statistics/'
-  uri += endpoint + '?key=' + key
-  link = server + encodeURI(uri)
-  return link
+  const uri = '/platform/' + papi_vers + '/statistics/' + endpoint;
+  const pathParam = encodeURIComponent(uri);
+  const keyParam = encodeURIComponent(key);
+  const link = '/papi?path=' + pathParam + '&key=' + keyParam;
+  return link;
 }
