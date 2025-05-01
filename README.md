@@ -1,153 +1,77 @@
-[![Master Build Status](https://travis-ci.org/Isilon/isilon_stat_browser.svg?branch=master)](https://travis-ci.org/Isilon/isilon_stat_browser)
-[![Average time to resolve an issue](http://isitmaintained.com/badge/resolution/isilon/isilon_stat_browser.svg)](http://isitmaintained.com/project/isilon/isilon_stat_browser)
-[![Percentage of issues still open](http://isitmaintained.com/badge/open/isilon/isilon_stat_browser.svg)](http://isitmaintained.com/project/isilon/isilon_stat_browser)
-
 # Statistics Key Browser
 
-This repository is part of the Isilon SDK and provides a tool for browsing the statistics keys exposed by OneFS. The statistics key browser is a Python-generated, single-page web application that displays all available statistics keys from a PowerScale cluster, categorized and tagged for easier exploration.
+This tool connects to a PowerScale cluster via PAPI and renders a browsable UI of all available statistics keys. It auto-categorizes and tags the keys, then generates a single-page web app for fast inspection.
 
-## Overview
+## ✅ Quick Start
 
-The `build_stat_browser.py` script connects to your PowerScale cluster using the official `isilon_sdk` Python bindings, queries the Platform API (PAPI) for all available statistics keys, applies human-readable categories and tags, and then generates an HTML page with JavaScript data. The result is a static website you can open directly in your browser.
+```bash
+pip install -r requirements.txt
+python stat_browser.py --host <cluster_ip> --user <username> --pass <password>
+```
+
+Open [http://localhost:5000](http://localhost:5000) in your browser.
+
+If tagging data (`key_tags.json`, `key_cats.json`) is missing, the tool will automatically regenerate it from `.hexa` source definitions via `hexaparse.py`.
+
+## Features
+
+- Pulls all statistics keys via OneFS PAPI
+- Categorizes and tags keys for clarity
+- Renders a Flask-backed single-page UI
+- Supports live queries through `/papi` proxy
+- Fully standalone and portable
 
 ## Requirements
 
-### Runtime
+- Python 3.6+
+- A modern web browser
 
-- Python 3.6 or later (tested with 3.11)
-- A web browser that supports JavaScript:
-  - Chrome
-  - Firefox
-  - Edge
-  - Safari
+Python dependencies:
 
-### Python Packages
-
-Install dependencies using:
-
-```
+```bash
 pip install -r requirements.txt
 ```
 
-For development:
-
-```
-pip install -r requirements-dev.txt
-```
-
-### SDK Bindings
-
-This tool uses the official Python bindings for OneFS 9.4+:
-https://pypi.org/project/isilon-sdk/
-
-Make sure the version of the SDK installed matches your cluster version or defaults to the most recent supported version (currently `v9_10_0`).
-
 ## Usage
 
-### Building the Stat Browser
-
-To generate a complete, self-contained `web_app/index.html` from a cluster:
-
-```
-python build_stat_browser.py --cluster <IP> --user <username> --password <password>
+```bash
+python stat_browser.py --host 10.10.25.155 --user admin --pass password
 ```
 
-The script will:
-- Connect to your cluster and detect the OneFS version
-- Use the matching version of the SDK bindings
-- Query all statistics keys from the PAPI
-- Apply tags and categories (from `*.hexa` definitions)
-- Write `web_app/index.html` and `web_app/js/keys.js`
+Alternatively, use environment variables:
 
-### Viewing the Browser
-
-After building, open:
-
-```
-web_app/index.html
+```bash
+export ISILON_HOST=10.10.25.155
+export ISILON_USER=admin
+export ISILON_PASS=password
+python stat_browser.py
 ```
 
-in any modern web browser to browse the stats.
+The following will be generated in `web_app/`:
 
-### Building the JSON Data
+- `index.html` – the rendered app
+- `js/keys.js` – metadata for all stat keys
 
-You can regenerate the `.json` files from the `.hexa` inputs using:
+## Directory Overview
 
+| File/Dir                            | Purpose |
+|------------------------------------|---------|
+| `stat_browser.py`                  | Main entry point. Runs the Flask app. |
+| `hexaparse.py`                     | Converts `*.hexa` definitions into `.json` mappings. |
+| `stat_key_browser/browser_builder.py` | Orchestrates key collection and rendering. |
+| `stat_key_browser/key_collector.py` | Pulls raw stats from the cluster via PAPI. |
+| `stat_key_browser/tags/*.hexa`     | Human-written tag/category definitions. |
+| `stat_key_browser/data/*.json`     | Generated tag/category mappings. |
+| `stat_key_browser/templates/`      | Jinja2 HTML templates. |
+| `web_app/`                         | Final static output (HTML, CSS, JS). |
+
+## Development Tips
+
+- Modify tag/category definitions in `.hexa` files
+- Run `python hexaparse.py` to regenerate `.json` mappings
+- Restart `stat_browser.py` to rebuild everything
+
+## Production
+
+To deploy this behind nginx or another WSGI-compatible server (e.g. Gunicorn), extract the static site (`web_app/`) and serve directly from disk. The live Flask app is best for local use or when needing `/papi` proxying.
 ```
-python hexaparse.py
-```
-
-This will generate:
-
-- `stat_key_browser/data/key_tags.json`
-- `stat_key_browser/data/key_cats.json`
-
-These are used to annotate and categorize the statistics keys queried from the cluster.
-
-### Running Tests
-
-Run all unit tests:
-
-```
-make unittests
-```
-
-Run with coverage:
-
-```
-make coverage
-```
-
-## Distribution
-
-To package a ZIP archive for distribution (includes all files required to run the app offline):
-
-```
-make dist BUILD_BROWSER_ARGS='-c <cluster_ip> -u <username> -p <password>'
-```
-
-The result will be `isilon_stat_browser_<version>.zip`.
-
-You can also generate the ZIP manually:
-
-```
-python build_stat_browser.py --cluster <ip> --user <user> --password <pw>
-```
-
-Then zip the contents of the `web_app/` and any other desired files.
-
-## File Descriptions
-
-- `build_stat_browser.py` – Main entry point; queries the cluster, builds `index.html`
-- `hexaparse.py` – Converts `.hexa` format to `.json`
-- `stat_key_browser/browser_builder.py` – Coordinates JSON creation, templating
-- `stat_key_browser/tagger.py` – Tags statistics keys
-- `stat_key_browser/categorizer.py` – Categorizes statistics keys
-- `stat_key_browser/key_collector.py` – Connects to cluster and fetches all stat keys
-- `stat_key_browser/cluster_config.py` – Cluster connection and version logic
-- `stat_key_browser/data/key_tags.hexa` – Human-readable tagging definitions
-- `stat_key_browser/data/key_cats.hexa` – Human-readable categorization definitions
-- `stat_key_browser/data/key_tags.json` – Auto-generated from `key_tags.hexa`
-- `stat_key_browser/data/key_cats.json` – Auto-generated from `key_cats.hexa`
-- `web_app/index.html` – Final stat browser output
-- `web_app/js/keys.js` – Final annotated statistics key dictionary in JS
-- `stat_key_browser/templates/app_template.html` – Main HTML template
-
-## Release Process
-
-To cut a release:
-
-1. Tag the commit:
-
-   ```
-   git tag -a v0.0.1 -m "version 0.0.1"
-   git push origin v0.0.1
-   ```
-
-2. Build the zip:
-
-   ```
-   make dist BUILD_BROWSER_ARGS='-c <cluster IP> -u <username> -p <password>'
-   ```
-
-3. Attach the generated `.zip` to a new GitHub release under the `Releases` tab.
