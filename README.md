@@ -2,6 +2,21 @@
 
 This tool connects to a PowerScale cluster via PAPI and renders a browsable UI of all available statistics keys. It auto-categorizes and tags the keys, then generates a single-page web app for fast inspection.
 
+
+- [Statistics Key Browser](#statistics-key-browser)
+  - [✅ Quick Start](#-quick-start)
+  - [Features](#features)
+  - [Requirements](#requirements)
+  - [Usage](#usage)
+  - [Directory Overview](#directory-overview)
+  - [Development Tips](#development-tips)
+  - [Production](#production)
+  - [What it Looks Like](#what-it-looks-like)
+    - [Main Webpage](#main-webpage)
+    - [Keys](#keys)
+    - [Viewing a Result](#viewing-a-result)
+
+
 ## ✅ Quick Start
 
 ```bash
@@ -49,7 +64,7 @@ python stat_browser.py
 
 The following will be generated in `web_app/`:
 
-- `index.html` – the rendered app
+- `index.html` – the rendered app generated from jinja2
 - `js/keys.js` – metadata for all stat keys
 
 ## Directory Overview
@@ -73,5 +88,18 @@ The following will be generated in `web_app/`:
 
 ## Production
 
-To deploy this behind nginx or another WSGI-compatible server (e.g. Gunicorn), extract the static site (`web_app/`) and serve directly from disk. The live Flask app is best for local use or when needing `/papi` proxying.
-```
+To deploy this behind nginx or another WSGI-compatible server (e.g. Gunicorn), extract the static site (`web_app/`) and serve directly from disk. The live Flask app is meant as a quick start.
+
+## What it Looks Like
+
+### Main Webpage
+
+![](images/2025-05-01-12-35-50.png)
+
+### Keys
+
+![](images/2025-05-01-12-36-57.png)
+
+### Viewing a Result
+
+![](images/2025-05-01-12-37-23.png)
